@@ -147,6 +147,19 @@ public:
 
 
 public:
+  enum SIM7000_NetworkModes{
+    SIM7000_NETWORK_AUTO = 2,
+    SIM7000_NETWORK_ONLY_GSM = 13,
+    SIM7000_NETWORK_ONLY_LTE = 38,
+    SIM7000_NETWORK_ONLY_GSM_LTE = 51,
+  };
+
+  enum SIM7000_LTEBands{
+    SIM7000_BAND_CAT_M = 1,
+    SIM7000_BAND_NB_IOT = 2,
+    SIM7000_BAND_BOTH = 3,
+  };
+
 
   TinyGsmSim7000(Stream& stream)
     : stream(stream)
@@ -339,7 +352,7 @@ TINY_GSM_MODEM_GET_CSQ()
 
 TINY_GSM_MODEM_WAIT_FOR_NETWORK()
 
-  String setNetworkMode(uint8_t mode) {
+  String setNetworkMode(enum SIM7000_NetworkModes  mode) {
       sendAT(GF("+CNMP="), mode);
       if (waitResponse(GF(GSM_NL "+CNMP:")) != 1) {
         return "OK";
@@ -349,7 +362,7 @@ TINY_GSM_MODEM_WAIT_FOR_NETWORK()
     return res;
   }
 
-  String getPreferredModes() {
+  String getLTEBandPreferences() {
     sendAT(GF("+CMNB=?"));
     if (waitResponse(GF(GSM_NL "+CMNB:")) != 1) {
       return "";
@@ -359,7 +372,7 @@ TINY_GSM_MODEM_WAIT_FOR_NETWORK()
     return res;
   }
 
-  String setPreferredMode(uint8_t mode) {
+  String setLTEBandPreference(enum SIM7000_LTEBands mode) {
     sendAT(GF("+CMNB="), mode);
     if (waitResponse(GF(GSM_NL "+CMNB:")) != 1) {
       return "OK";
@@ -806,6 +819,64 @@ TINY_GSM_MODEM_WAIT_FOR_NETWORK()
   }
 
   float getTemperature() TINY_GSM_ATTR_NOT_AVAILABLE;
+
+  /*
+   * NTP server functions
+   */
+
+  boolean isValidNumber(String str) {
+    if(!(str.charAt(0) == '+' || str.charAt(0) == '-' || isDigit(str.charAt(0)))) return false;
+
+    for(byte i=1;i < str.length(); i++) {
+      if(!(isDigit(str.charAt(i)) || str.charAt(i) == '.')) return false;
+    }
+    return true;
+  }
+
+  String ShowNTPError(byte error) {
+    switch (error) {
+      case 1:
+        return GF("Network time synchronization is successful");
+      case 61:
+        return GF("Network error");
+      case 62:
+        return GF("DNS resolution error");
+      case 63:
+        return GF("Connection error");
+      case 64:
+        return GF("Service response error");
+      case 65:
+        return GF("Service response timeout");
+      default:
+        return "Unknown error: " + String(error);
+    }
+  }
+
+  byte NTPServerSync(String server = "pool.ntp.org", byte TimeZone = 3) {
+    sendAT(GF("+CNTPCID=1"));
+    if (waitResponse(10000L) != 1) {
+        return -1;
+    }
+
+    sendAT(GF("+CNTP="), server, ',', String(TimeZone));
+    if (waitResponse(10000L) != 1) {
+        return -1;
+    }
+
+    sendAT(GF("+CNTP"));
+    if (waitResponse(10000L, GF(GSM_NL "+CNTP:"))) {
+        String result = stream.readStringUntil('\n');
+        result.trim();
+        if (isValidNumber(result))
+        {
+          return result.toInt();
+        }
+    }
+    else {
+      return -1;
+    }
+    return -1;
+  }
 
   /*
    * Client related functions
