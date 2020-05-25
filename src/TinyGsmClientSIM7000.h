@@ -806,7 +806,7 @@ TINY_GSM_MODEM_WAIT_FOR_NETWORK()
   }
 
   bool getBattStats(uint8_t &chargeState, int8_t &percent, uint16_t &milliVolts) {
-    sendAT(GF("+CBC?"));
+    sendAT(GF("+CBC"));
     if (waitResponse(GF(GSM_NL "+CBC:")) != 1) {
       return false;
     }
